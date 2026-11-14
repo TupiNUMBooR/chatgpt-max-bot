@@ -1,6 +1,6 @@
 # run.ps1
-Write-Host 'up'
 try {
+    Write-Host 'up'
     docker compose up --build
 }
 finally {
