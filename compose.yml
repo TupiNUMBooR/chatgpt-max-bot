@@ -1,0 +1,7 @@
+# compose.yml
+services:
+  chatgpt-max-bot:
+    build: .
+    image: chatgpt-max-bot:local
+    env_file:
+      - .env

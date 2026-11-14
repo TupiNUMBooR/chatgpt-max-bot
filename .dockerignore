@@ -1,0 +1,17 @@
+# .dockerignore
+
+## Git
+.git/
+
+## IDE
+.vscode/
+.idea/
+.agents/
+.codex/
+
+## Runtime
+.env
+
+## User files
+user/
+*.zip

@@ -1,0 +1,14 @@
+# .gitignore
+
+## IDE
+.vscode/
+.idea/
+.agents/
+.codex/
+
+## Runtime
+.env
+
+## User files
+user/
+*.zip
