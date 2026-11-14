@@ -1,2 +1,9 @@
 # run.ps1
-docker compose up --build
+Write-Host 'up'
+try {
+    docker compose up --build
+}
+finally {
+    Write-Host 'down'
+    docker compose down --remove-orphans
+}
