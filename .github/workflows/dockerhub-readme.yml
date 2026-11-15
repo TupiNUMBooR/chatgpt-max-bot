@@ -1,0 +1,28 @@
+# .github/workflows/dockerhub-readme.yml
+name: Sync Docker Hub README
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - README.md
+      - .github/workflows/dockerhub-readme.yml
+
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Update Docker Hub README
+        uses: peter-evans/dockerhub-description@v5
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ vars.DOCKERHUB_USERNAME }}/chatgpt-max-bot
+          enable-url-completion: true

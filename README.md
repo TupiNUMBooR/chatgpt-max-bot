@@ -12,3 +12,5 @@
 
 ![Top Lang](https://img.shields.io/github/languages/top/TupiNUMBooR/chatgpt-max-bot?logo=gnubash)
 ![Docker](https://img.shields.io/badge/docker-ghcr-blue?logo=docker)
+![Docker Hub](https://img.shields.io/badge/docker-hub-blue?logo=docker)
+![Docker Image Size](https://img.shields.io/docker/image-size/tupinumboor/chatgpt-max-bot/latest?label=image%20size&logo=docker)
