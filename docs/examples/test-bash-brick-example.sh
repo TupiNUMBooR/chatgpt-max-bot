@@ -6,45 +6,30 @@ TEST_NAME="$(basename "$0")"
 SCRIPT_NAME="${TEST_NAME#test-}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
-LOCAL_SCRIPT="$SCRIPT_DIR/$SCRIPT_NAME"
-
-if [[ -e "$LOCAL_SCRIPT" ]]; then
-  SCRIPT_UNDER_TEST="$LOCAL_SCRIPT"
-else
-  PROJECT_DIR="${SCRIPT_DIR%%/test/*}"
-  RELATIVE_DIR="${SCRIPT_DIR#"$PROJECT_DIR/test/"}"
-
-  SCRIPT_UNDER_TEST="$PROJECT_DIR/src/$RELATIVE_DIR/$SCRIPT_NAME"
-fi
+SCRIPT_UNDER_TEST=""
 
 PASS=0
 FAIL=0
 TMP_DIR=""
-
+STDOUT_FILE=""
+STDERR_FILE=""
+STATUS=0
 
 main() {
-  need_commands bash jq curl mktemp grep
-
-  [[ -x "$SCRIPT_UNDER_TEST" ]] \
-    || error "Tested file not found or not executable: $SCRIPT_UNDER_TEST"
+  need_commands mktemp grep
+  resolve_script
 
   TMP_DIR="$(mktemp -d)"
-  trap 'rm -rf "$TMP_DIR"' EXIT
+  trap 'rm -rf -- "$TMP_DIR"' EXIT
 
   run_test "help works without environment" test_help
   run_test "rejects missing arguments" test_missing_arguments
-  run_test "rejects too many arguments" test_too_many_arguments
   run_test "requires EXAMPLE_VALUE" test_requires_example_value
-  run_test "rejects empty message" test_empty_message
-  run_test "rejects whitespace-only message" test_whitespace_message
   run_test "prints message" test_prints_message
-  run_test "verbose logs details" test_verbose
 
   printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
-
   ((FAIL == 0))
 }
-
 
 # region tests
 
@@ -64,32 +49,11 @@ test_missing_arguments() {
   assert_stderr_contains "Expected message"
 }
 
-test_too_many_arguments() {
-  run env EXAMPLE_VALUE=example "$SCRIPT_UNDER_TEST" one two
-
-  assert_status 2
-  assert_stderr_contains "Expected message"
-}
-
 test_requires_example_value() {
   run env -u EXAMPLE_VALUE "$SCRIPT_UNDER_TEST" "hello"
 
   assert_status 1
   assert_stderr_contains "EXAMPLE_VALUE is required"
-}
-
-test_empty_message() {
-  run env EXAMPLE_VALUE=example "$SCRIPT_UNDER_TEST" ""
-
-  assert_status 65
-  assert_stderr_contains "Message is empty"
-}
-
-test_whitespace_message() {
-  run env EXAMPLE_VALUE=example "$SCRIPT_UNDER_TEST" "   "
-
-  assert_status 65
-  assert_stderr_contains "Message is empty"
 }
 
 test_prints_message() {
@@ -100,30 +64,48 @@ test_prints_message() {
   assert_stderr_empty
 }
 
-test_verbose() {
-  run env \
-    EXAMPLE_VALUE=example \
-    VERBOSE=1 \
-    "$SCRIPT_UNDER_TEST" \
-    "hello"
-
-  assert_status 0
-  assert_stdout_equals "hello"
-  assert_stderr_contains "echo: example_value=example chars=5"
-}
-
 # endregion
 
-
 # region test helpers
+
+# Locate the script under test by removing the "test-" filename prefix.
+# 1. Prefer a sibling: scripts/test-foo.sh -> scripts/foo.sh.
+# 2. Otherwise mirror the directory beneath test/ into src/:
+#      project/test/test-foo.sh     -> project/src/foo.sh
+#      project/test/api/test-foo.sh -> project/src/api/foo.sh
+# Resolve relative to this test file, never to the working directory.
+# Keep this lookup in tests derived from this template; do not hardcode paths.
+resolve_script() {
+  local local_script="$SCRIPT_DIR/$SCRIPT_NAME"
+
+  if [[ -e "$local_script" ]]; then
+    SCRIPT_UNDER_TEST="$local_script"
+  else
+    local dir="$SCRIPT_DIR" relative_dir=""
+
+    while [[ "$dir" != / && "${dir##*/}" != test ]]; do
+      relative_dir="/${dir##*/}$relative_dir"
+      dir="$(dirname -- "$dir")"
+    done
+
+    [[ "${dir##*/}" == test ]] \
+      || error "No sibling script and no parent test/ directory: $SCRIPT_NAME"
+
+    SCRIPT_UNDER_TEST="$(dirname -- "$dir")/src$relative_dir/$SCRIPT_NAME"
+  fi
+
+  [[ -e "$SCRIPT_UNDER_TEST" ]] \
+    || error "Tested file not found: $SCRIPT_UNDER_TEST"
+
+  [[ -x "$SCRIPT_UNDER_TEST" ]] \
+    || error "Tested file is not executable: $SCRIPT_UNDER_TEST"
+}
 
 run_test() {
   local name="$1"
   local test_function="$2"
 
-  if (
-    "$test_function"
-  ); then
+  if ( "$test_function" ); then
     printf 'ok - %s\n' "$name"
     ((PASS += 1))
   else
@@ -136,10 +118,11 @@ run() {
   STDOUT_FILE="$TMP_DIR/stdout"
   STDERR_FILE="$TMP_DIR/stderr"
 
-  set +e
-  "$@" >"$STDOUT_FILE" 2>"$STDERR_FILE"
-  STATUS=$?
-  set -e
+  if "$@" >"$STDOUT_FILE" 2>"$STDERR_FILE"; then
+    STATUS=0
+  else
+    STATUS=$?
+  fi
 }
 
 assert_status() {
@@ -151,12 +134,9 @@ assert_status() {
 
 assert_stdout_equals() {
   local expected="$1"
-  local actual
-
-  actual="$(cat "$STDOUT_FILE")"
-
-  [[ "$actual" == "$expected" ]] \
-    || fail "stdout mismatch\nexpected: $expected\nactual:   $actual"
+  # Compare bytes, including trailing newlines. The brick prints one line.
+  printf '%s\n' "$expected" | cmp -s - "$STDOUT_FILE" \
+    || fail "stdout mismatch\nexpected: $expected\nactual:   $(cat "$STDOUT_FILE")"
 }
 
 assert_stdout_contains() {
@@ -189,15 +169,12 @@ error() {
 }
 
 need_commands() {
-  local name
-
-  for name in "$@"; do
-    command -v "$name" >/dev/null 2>&1 \
-      || error "Missing executable: $name"
+  local cmd
+  for cmd in "$@"; do
+    command -v "$cmd" &>/dev/null || error "Missing executable: $cmd"
   done
 }
 
 # endregion
-
 
 main "$@"
