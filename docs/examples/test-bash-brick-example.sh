@@ -16,7 +16,7 @@ STDERR_FILE=""
 STATUS=0
 
 main() {
-  need_commands mktemp grep
+  need_commands mktemp grep cmp
   resolve_script
 
   TMP_DIR="$(mktemp -d)"
@@ -52,7 +52,7 @@ test_missing_arguments() {
 test_requires_example_value() {
   run env -u EXAMPLE_VALUE "$SCRIPT_UNDER_TEST" "hello"
 
-  assert_status 1
+  assert_status 78
   assert_stderr_contains "EXAMPLE_VALUE is required"
 }
 
@@ -96,7 +96,6 @@ resolve_script() {
 
   [[ -e "$SCRIPT_UNDER_TEST" ]] \
     || error "Tested file not found: $SCRIPT_UNDER_TEST"
-
   [[ -x "$SCRIPT_UNDER_TEST" ]] \
     || error "Tested file is not executable: $SCRIPT_UNDER_TEST"
 }
@@ -170,8 +169,10 @@ error() {
 
 need_commands() {
   local cmd
+
   for cmd in "$@"; do
-    command -v "$cmd" &>/dev/null || error "Missing executable: $cmd"
+    command -v "$cmd" &>/dev/null \
+      || error "Missing command: $cmd"
   done
 }
 

@@ -10,20 +10,20 @@ EXAMPLE_VALUE="${EXAMPLE_VALUE:-}"
 # optional environment
 VERBOSE="${VERBOSE:-0}"
 
-
 main() {
   handle_help "$@"
 
   [[ $# -eq 1 ]] || error 2 "Expected message"
+  [[ -n "$EXAMPLE_VALUE" ]] || error 78 "EXAMPLE_VALUE is required"
 
-  : "${EXAMPLE_VALUE:?EXAMPLE_VALUE is required}"
-
-  need_commands jq curl
+  # Demonstrate dependency checking; echo is a Bash builtin.
+  need_commands echo
 
   local message="$1"
 
-  [[ -n "${message//[[:space:]]/}" ]] \
-    || error 65 "Message is empty"
+  if [[ -z "${message//[[:space:]]/}" ]]; then
+    warn "Message is empty"
+  fi
 
   if [[ "$VERBOSE" == "1" ]]; then
     log "echo: example_value=$EXAMPLE_VALUE chars=${#message}"
@@ -33,7 +33,7 @@ main() {
 }
 
 usage() {
-  cat <<EOF
+  cat <<EOF_USAGE
 $SCRIPT_NAME — example Bash brick that prints a message.
 
 Usage:
@@ -41,37 +41,41 @@ Usage:
   $SCRIPT_NAME -h|--help
 
 Arguments:
-  message  Text to print to standard output.
+  message        Text to print (empty/whitespace-only text warns).
 
 Environment:
-  EXAMPLE_VALUE  Required example value.
-  VERBOSE        Enable informational logs. Default: 0
+  EXAMPLE_VALUE  Required, non-empty.
+  VERBOSE        Log additional details when set to 1 (default: 0).
 
 Exit codes:
-  # Standard exit codes.
-  0    Completed successfully.
-  2    Invalid command-line arguments.
-  65   Invalid input data.
-  66   Required input is missing.
-  69   External service is unavailable.
-  78   Invalid project configuration.
+  0    Success (warnings do not change the exit code).
+  2    Invalid number of arguments.
+  78   EXAMPLE_VALUE is missing or empty.
   127  Required command is unavailable.
-
-  # Project-specific exit codes.
-  12   A long-running local command failed.
-  13   A paid operation failed.
-  14   The project must fail immediately.
-
-  21   Output already exists.
 
 Example:
   EXAMPLE_VALUE=example $SCRIPT_NAME "Hello, world!"
-
-This script is an example Bash brick. Some documented exit codes and required
-commands are included only to demonstrate the standard brick interface.
-EOF
+EOF_USAGE
 }
 
+# Exit-code conventions for derived Bash bricks (not this script's --help):
+#   0       Success; warnings may still be emitted to stderr.
+#   2       Invalid command-line arguments (project convention).
+#   10-63   Project-specific failures (assign meanings per brick), e.g.:
+#           long-running local operation failed; paid operation failed;
+#           critical operation failed; output already exists.
+#   64      Usage error (sysexits; alternative to 2).
+#   65      Invalid input data (sysexits EX_DATAERR).
+#   66      Input cannot be opened (sysexits EX_NOINPUT).
+#   69      Required service unavailable (sysexits EX_UNAVAILABLE).
+#   70      Internal software error (sysexits EX_SOFTWARE).
+#   73      Cannot create output (sysexits EX_CANTCREAT).
+#   75      Temporary failure; retry may help (sysexits EX_TEMPFAIL).
+#   78      Configuration error (sysexits EX_CONFIG).
+#   126     Command found but cannot execute (shell convention).
+#   127     Command not found (shell convention).
+# Choose only codes relevant to a new brick; document actual return codes in
+# its usage(). These are conventions, not a claim that Bash reserves 10-19.
 
 # region functions
 
@@ -102,15 +106,14 @@ error() {
 }
 
 need_commands() {
-  local name
+  local cmd
 
-  for name in "$@"; do
-    command -v "$name" >/dev/null 2>&1 \
-      || error 127 "Missing executable: $name"
+  for cmd in "$@"; do
+    command -v "$cmd" &>/dev/null \
+      || error 127 "Missing command: $cmd"
   done
 }
 
 # endregion
-
 
 main "$@"
