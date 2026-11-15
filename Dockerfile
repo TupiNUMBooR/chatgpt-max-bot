@@ -1,10 +1,21 @@
 # Dockerfile
-FROM alpine:3.24
+FROM alpine:3.24 AS base
 
 RUN apk add --no-cache bash
 
-WORKDIR /workspace
 
-COPY src/ ./src/
+FROM base AS test
 
-CMD ["bash", "src/entrypoint.sh"]
+COPY src/ /app/src/
+COPY test/ /app/test/
+
+RUN find /app/src -type f -name '*.sh' -exec chmod +x {} + \
+    && bash /app/test/run-tests.sh
+
+
+FROM base AS runtime
+
+COPY --from=test /app/src/ /app/
+
+WORKDIR /app
+ENTRYPOINT ["/app/entrypoint.sh"]
