@@ -16,7 +16,7 @@ STDERR_FILE=""
 STATUS=0
 
 main() {
-  need_commands mktemp grep cmp
+  need_commands mktemp grep cmp echo
   resolve_script
 
   TMP_DIR="$(mktemp -d)"
@@ -169,11 +169,14 @@ error() {
 
 need_commands() {
   local cmd
+  local -a missing_commands=()
 
   for cmd in "$@"; do
-    command -v "$cmd" &>/dev/null \
-      || error "Missing command: $cmd"
+    command -v "$cmd" &>/dev/null || missing_commands+=("$cmd")
   done
+
+  ((${#missing_commands[@]} == 0)) \
+    || error "Missing commands: ${missing_commands[*]}"
 }
 
 # endregion

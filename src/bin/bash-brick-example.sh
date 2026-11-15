@@ -107,11 +107,14 @@ error() {
 
 need_commands() {
   local cmd
+  local -a missing_commands=()
 
   for cmd in "$@"; do
-    command -v "$cmd" &>/dev/null \
-      || error 127 "Missing command: $cmd"
+    command -v "$cmd" &>/dev/null || missing_commands+=("$cmd")
   done
+
+  ((${#missing_commands[@]} == 0)) \
+    || error 127 "Missing commands: ${missing_commands[*]}"
 }
 
 # endregion

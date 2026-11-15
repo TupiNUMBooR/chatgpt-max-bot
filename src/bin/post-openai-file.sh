@@ -52,9 +52,14 @@ error() {
 
 need_commands() {
   local cmd
+  local -a missing_commands=()
+
   for cmd in "$@"; do
-    command -v "$cmd" >/dev/null 2>&1 || error 127 "Missing command: $cmd"
+    command -v "$cmd" >/dev/null 2>&1 || missing_commands+=("$cmd")
   done
+
+  ((${#missing_commands[@]} == 0)) \
+    || error 127 "Missing commands: ${missing_commands[*]}"
 }
 
 main() {
