@@ -4,7 +4,7 @@
 
 Бот для общения с ChatGPT прямо в мессенджере MAX.
 
-![Banner](docs/banner.jpg)
+![Banner](docs/banner2.jpg)
 
 ![Latest Release](https://img.shields.io/github/v/release/TupiNUMBooR/chatgpt-max-bot)
 ![Release Date](https://img.shields.io/github/release-date/TupiNUMBooR/chatgpt-max-bot)
